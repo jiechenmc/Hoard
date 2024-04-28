@@ -71,8 +71,11 @@
 
 
 ### Block format:
-- Header
+- Header (8 bytes)
     - Pointer to superblock that contains the block
+        - Size in bytes if mmap bit is 1
+    - mmap bit
+        - 1 if allocated via mmap, 0 if in superblock
     - Allocated bit
         - Whether or not this block is in use
 - Payload

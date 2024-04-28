@@ -2,6 +2,6 @@ BUILDDIR = ./bin
 
 all:
 	mkdir -p $(BUILDDIR)
-	gcc -Iinclude src/*.c -o bin/hoard
+	gcc -Iinclude src/*.c -o bin/hoard -lm
 clean:
 	rm -r $(BUILDDIR)
