@@ -1,4 +1,5 @@
 BUILDDIR = ./bin
+BENCHDIR = ./benchmarks
 
 all:
 	mkdir -p $(BUILDDIR)

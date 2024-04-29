@@ -327,6 +327,10 @@ void *malloc(size_t size) {
     }
 
     
-
     return 0;
+}
+
+void free(void* block){
+    if(!block) return NULL;
+    return NULL;
 }

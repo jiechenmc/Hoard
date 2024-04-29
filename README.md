@@ -79,3 +79,14 @@
     - Allocated bit
         - Whether or not this block is in use
 - Payload
+
+### Benchmark
+
+At the root the project, run
+`make so`
+
+Then set the environment variable LD_PRELOAD before running the benchmark
+`export LD_PRELOAD=./hoard.so`
+
+Lastly unset when done
+`unset LD_PRELOAD`
