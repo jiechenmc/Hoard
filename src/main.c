@@ -3,27 +3,27 @@
 
 int main(int argc, char **argv)
 {
-    void* data;
+    // void* data;
 
-    data = hmalloc(800);
-    printf("data: %p\n", data);
+    // data = hmalloc(800);
+    // printf("data: %p\n", data);
 
-    data = hmalloc(800);
-    printf("data: %p\n", data);
+    // data = hmalloc(800);
+    // printf("data: %p\n", data);
 
-    data = hmalloc(800);
-    printf("data: %p\n", data);
+    // data = hmalloc(800);
+    // printf("data: %p\n", data);
 
-    data = hmalloc(800);
-    printf("data: %p\n", data);
+    // data = hmalloc(800);
+    // printf("data: %p\n", data);
 
-    data = hmalloc(800);
-    printf("data: %p\n", data);
+    // data = hmalloc(800);
+    // printf("data: %p\n", data);
 
-    data = hmalloc(800);
-    printf("data: %p\n", data);
+    // data = hmalloc(800);
+    // printf("data: %p\n", data);
 
-    debug_print_hoard();
+    // debug_print_hoard();
 
 
     return 0;

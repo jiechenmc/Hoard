@@ -216,7 +216,7 @@ HeapListEntry* get_global_heap(void) {
 
 
 // TODO
-void *hmalloc(size_t size) {
+void *malloc(size_t size) {
 
     if(initialize_global_heap() == GLOBAL_HEAP_FAILURE)
         return NULL;
