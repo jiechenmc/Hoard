@@ -1,0 +1,1 @@
+export LD_PRELOAD=/usr/local/lib/libjemalloc.so

@@ -85,8 +85,10 @@
 At the root the project, run
 `make so`
 
-Then set the environment variable LD_PRELOAD before running the benchmark
-`export LD_PRELOAD=./hoard.so`
+Then
 
-Lastly unset when done
+`cd benchmarks && source ./use_hoard.sh`
+
+Then run the make for each benchmark and unset when done.
+
 `unset LD_PRELOAD`
