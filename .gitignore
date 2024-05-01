@@ -57,3 +57,5 @@ bin/
 
 benchmarks/larson/larson
 benchmarks/threadtest/threadtest
+benchmarks/cache-scratch/cache-scratch
+benchmarks/cache-thrash/cache-thrash
