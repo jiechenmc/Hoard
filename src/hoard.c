@@ -71,22 +71,30 @@ void debug_print_hoard(void) {
         printf("TID: %i\n", heap_list[i].tid);
         printf("In use: %i\n", heap_list[i].m_use);
         printf("Allocated: %i\n", heap_list[i].m_alloc);
-        printf("Superblocks:\n");
 
         SuperblockNode* curr_node = heap_list[i].heap;
+
         while(curr_node != NULL)
         {
-            printf("\tnode: %p    data: %p    size class: %i    free blocks: %i\n",
+            printf("Superblock: %p    data: %p    size class: %i    free blocks: %i\n",
                 curr_node,
                 curr_node->data,
                 curr_node->size_class,
                 curr_node->num_free_blocks);
 
             // print block info
-            void* block_pointer = curr_node->data;
-            for(int i = 0; i < SUPERBLOCK_SIZE / curr_node->size_class; ++i)
+            if(curr_node->size_class > 0)
             {
-                printf("\t\t0x%.16lx\n", *(long*)(block_pointer + i * curr_node->size_class));
+                for(int i = 0; i < SUPERBLOCK_SIZE / curr_node->size_class; ++i)
+                {
+                    void* block_pointer = curr_node->data + i * curr_node->size_class;
+
+                    // only print allocated blocks
+                    long block_header = *(long*)(block_pointer);
+
+                    if(block_header & BLOCK_USED)
+                        printf("\tblock @ %p: 0x%lx\n", block_pointer, block_header);
+                }
             }
 
             curr_node = curr_node->next;
@@ -124,9 +132,9 @@ void *get_superblock(void) {
         sb_node_list = sb_node_list->next;
     }
 
-    // clear superblock with 0
-    for(int i = 0; i < SUPERBLOCK_SIZE; ++i)
-        *((char*)data + i) = 0;
+    // set lower 3 bits of every 8 bytes to 0
+    for(int i = 0; i < SUPERBLOCK_SIZE / 8; ++i)
+        *((long*)data + i) &= ~0b111;
 
     sb_node->size_class = 0;
     sb_node->num_free_blocks = SUPERBLOCK_SIZE / MIN_SIZE_CLASS;
@@ -185,6 +193,9 @@ int register_current_thread(void) {
         if(heap_list[i].tid == 0)
         {
             heap_list[i].tid = gettid();
+            heap_list[i].m_use = 0;
+            heap_list[i].m_alloc = 0;
+            heap_list[i].heap = NULL;
             return 0;
         }
     }
@@ -216,7 +227,7 @@ HeapListEntry* get_global_heap(void) {
 
 
 // TODO
-void *malloc(size_t size) {
+void *hmalloc(size_t size) {
 
     if(initialize_global_heap() == GLOBAL_HEAP_FAILURE)
         return NULL;
@@ -240,97 +251,112 @@ void *malloc(size_t size) {
     }
 
     // Size is <= S/2
-    if(true /* is_thread_registered()*/ )
+    if(!is_thread_registered())
+        register_current_thread();
+
+    // attempt to allocate in thread's superblock. Else, create new superblock
+    HeapListEntry* heap_entry = get_thread_heap();
+    if(!heap_entry->heap)
     {
-        // attempt to allocate in thread's superblock. Else, create new superblock
-        HeapListEntry* heap_entry = get_global_heap();
+        heap_entry->heap = get_superblock();
+        heap_entry->m_alloc = SUPERBLOCK_SIZE;
+    }
 
-        // allocate in global heap instead
-        // TODO: This is temporary behavior for testing
+    size_t alloc_size = size + BLOCK_HEADER_SIZE;
 
-        size_t alloc_size = size + BLOCK_HEADER_SIZE;
+    // iterate superblocks, find most full one with matching size class and sufficient space
+    int least_free = SUPERBLOCK_SIZE;               // acts as infinity, since no superblock can have same number of blocks as its size in bytes
+    SuperblockNode* least_free_node = NULL;
+    SuperblockNode* curr_node = heap_entry->heap;
 
-        // iterate superblocks, find most full one with matching size class and sufficient space
-        int least_free = SUPERBLOCK_SIZE;               // acts as infinity, since no superblock can have same number of blocks as its size in bytes
-        SuperblockNode* least_free_node = NULL;
-        SuperblockNode* curr_node = heap_entry->heap;
+    // converts alloc_size to nearest size class
+    // ex. 96 -> 128, minimum 32
+    int size_class = pow(2, ceil(log2(alloc_size)));
 
-        // converts alloc_size to nearest size class
-        // ex. 96 -> 128, minimum 32
-        int size_class = pow(2, ceil(log2(alloc_size)));
+    if(size_class < 32)
+        size_class = 32;
 
-        if(size_class < 32)
-            size_class = 32;
-
-        while(curr_node != NULL)
+    while(curr_node != NULL)
+    {
+        if(curr_node->size_class != 0 && curr_node->size_class != size_class)
         {
-            if(curr_node->size_class != 0 && curr_node->size_class != size_class)
-            {
-                curr_node = curr_node->next;
-                continue;
-            }
-
-            // superblock is either empty or has matching size class
-            if(curr_node->num_free_blocks > 0 && curr_node->num_free_blocks < least_free)
-            {
-                least_free = curr_node->num_free_blocks;
-                least_free_node = curr_node;
-            }
-
             curr_node = curr_node->next;
+            continue;
         }
 
-        // no available superblock found
-        if(least_free_node == NULL)
+        // superblock is either empty or has matching size class
+        if(curr_node->num_free_blocks > 0 && curr_node->num_free_blocks < least_free)
         {
-            // TODO: Get new superblock from virtual memory and allocate in that
-            least_free_node = get_superblock();
-            least_free_node->next = heap_entry->heap;
-            heap_entry->heap = least_free_node;
-            heap_entry->m_alloc += SUPERBLOCK_SIZE;
+            least_free = curr_node->num_free_blocks;
+            least_free_node = curr_node;
         }
 
-        // superblock found, set attributes in case it is 0
-        if(least_free_node->size_class == 0)
-        {
-            least_free_node->size_class = size_class;
-            least_free_node->num_free_blocks = SUPERBLOCK_SIZE / size_class;
-        }
-        
-
-        // locate free block in least_free_node
-        void* block_pointer = least_free_node->data;
-        while(true)
-        {
-            long block_header = *((long*)block_pointer);
-
-            if((block_header & BLOCK_USED) == 0)
-                break;
-
-            block_pointer += least_free_node->size_class;
-        }
-
-        // available block found
-        *((long*)block_pointer) = (long)least_free_node | BLOCK_USED;
-
-        // decrement free blocks
-        least_free_node->num_free_blocks--;
-
-        // update usage statistics
-        heap_entry->m_use += size_class;
-
-        return block_pointer + 8;
+        curr_node = curr_node->next;
     }
-    else
+
+    // no available superblock found
+    if(least_free_node == NULL)
     {
-        // register thread and give superblock
+        // TODO: Get new superblock from virtual memory and allocate in that
+        least_free_node = get_superblock();
+        least_free_node->next = heap_entry->heap;
+        heap_entry->heap = least_free_node;
+        heap_entry->m_alloc += SUPERBLOCK_SIZE;
     }
 
+    // superblock found, set attributes in case it is 0
+    if(least_free_node->size_class == 0)
+    {
+        least_free_node->size_class = size_class;
+        least_free_node->num_free_blocks = SUPERBLOCK_SIZE / size_class;
+    }
     
-    return 0;
+
+    // locate free block in least_free_node
+    void* block_pointer = least_free_node->data;
+    while(true)
+    {
+        long block_header = *((long*)block_pointer);
+
+        if((block_header & BLOCK_USED) == 0)
+            break;
+
+        block_pointer += least_free_node->size_class;
+    }
+
+    // available block found
+    *((long*)block_pointer) = (long)least_free_node | BLOCK_USED;
+
+    // decrement free blocks
+    least_free_node->num_free_blocks--;
+
+    // update usage statistics
+    heap_entry->m_use += size_class;
+
+    return block_pointer + 8;
 }
 
-void free(void* block){
-    if(!block) return NULL;
-    return NULL;
+void hfree(void* ptr) {
+    if(!ptr)
+        return;
+
+    long* header = ptr - 8;
+
+    // clear allocated bit
+    *header &= ~BLOCK_USED;
+
+    // update superblock info
+    SuperblockNode* sp = (void*)(*header & ~0b111);
+    sp->num_free_blocks++;
+    
+    // update heap entry
+    HeapListEntry* hentry = get_thread_heap();
+    hentry->m_use -= sp->size_class;
+
+    // if no more allocated blocks in superblock
+    if(sp->num_free_blocks == SUPERBLOCK_SIZE / sp->size_class)
+    {
+        sp->size_class = 0;
+        sp->num_free_blocks = SUPERBLOCK_SIZE / MIN_SIZE_CLASS;
+    }
 }
