@@ -6,7 +6,7 @@
 #include <math.h>
 #include "hoard.h"
 
-#define HEAP_LIST_SIZE 11
+#define HEAP_LIST_SIZE 41
 #define PAGE_SIZE 4096
 #define SUPERBLOCK_SIZE (PAGE_SIZE * 1)
 #define BLOCK_HEADER_SIZE 8
@@ -38,6 +38,9 @@ struct SuperblockNode {
     // if allocated, points to next superblock in heap.
     // if in free list, points to next free superblock.
     SuperblockNode* next;
+
+    // lifo list, max number of free blocks is SUPERBLOCK_SIZE / MIN_SIZE_CLASS
+    void* free_blocks[SUPERBLOCK_SIZE / MIN_SIZE_CLASS];
 };
 
 // definition of one thread map entry
@@ -57,14 +60,21 @@ bool global_heap_initialized = false;
 SuperblockNode* sb_node_list = NULL;
 
 
+// prints out free blocks in superblock
+void print_free_blocks(SuperblockNode* sb) {
+    printf("    Free blocks:\n");
+
+    for(int i = 0; i < sb->num_free_blocks; ++i)
+        printf("        %i: %p\n", i, sb->free_blocks[i]);
+}
+
 // prints out hoard info for all threads/heaps
-void debug_print_hoard(void) {
+void debug_print_hoard(int mode) {
     for(int i = 0; i < HEAP_LIST_SIZE; ++i)
     {
         if(heap_list[i].heap == NULL)
         {
-            printf("========\n");
-            break;
+            continue;
         }
 
         printf("========\n");
@@ -89,22 +99,37 @@ void debug_print_hoard(void) {
                 {
                     void* block_pointer = curr_node->data + i * curr_node->size_class;
 
-                    // only print allocated blocks
+                    // only allocated blocks
                     long block_header = *(long*)(block_pointer);
 
                     if(block_header & BLOCK_USED)
-                        printf("\tblock @ %p: 0x%lx\n", block_pointer, block_header);
+                        printf("    block @ %p: 0x%lx\n", block_pointer, block_header);
                 }
+
+                // print free blocks list if PRINT_VERBOSE
+                if(mode == PRINT_VERBOSE)
+                    print_free_blocks(curr_node);
             }
 
             curr_node = curr_node->next;
         }
     }
+
+    printf("========\n");
+}
+
+// initializes free blocks list in superblock
+// class size and num free blocks must be set before calling function
+void init_free_blocks_list(SuperblockNode* sb) {
+    
+    // fill free blocks list in reverse order so that they get filled top down
+    for(int i = 0; i < sb->num_free_blocks; i++)
+        sb->free_blocks[i] = sb->data + SUPERBLOCK_SIZE - (sb->size_class * (i + 1));
 }
 
 // get superblock from virtual memory and wrap it in a superblock node
 // returns -1 on failure
-void *get_superblock(void) {
+void *get_superblock(int size_class) {
 
     SuperblockNode* sb_node = 0;
 
@@ -136,10 +161,18 @@ void *get_superblock(void) {
     for(int i = 0; i < SUPERBLOCK_SIZE / 8; ++i)
         *((long*)data + i) &= ~0b111;
 
-    sb_node->size_class = 0;
-    sb_node->num_free_blocks = SUPERBLOCK_SIZE / MIN_SIZE_CLASS;
+    sb_node->size_class = size_class;
+    
+    if(size_class == 0)
+        sb_node->num_free_blocks = SUPERBLOCK_SIZE / MIN_SIZE_CLASS;
+    else
+        sb_node->num_free_blocks = SUPERBLOCK_SIZE / size_class;
+
     sb_node->next = NULL;
     sb_node->data = data;
+    
+    if(size_class != 0)
+        init_free_blocks_list(sb_node);
 
     return sb_node;
 }
@@ -147,13 +180,13 @@ void *get_superblock(void) {
 
 // add global heap to thread list.
 // return 0 on success, -1 on failure, -2 if already exists.
-int initialize_global_heap(void) {
+int init_global_heap(void) {
 
     // check if already initialized
     if(global_heap_initialized)
         return GLOBAL_HEAP_ALREADY_EXISTS;
     
-    SuperblockNode* sb_node = get_superblock();
+    SuperblockNode* sb_node = get_superblock(0);
     
     if(sb_node == (void*) -1)
         return GLOBAL_HEAP_FAILURE;
@@ -186,21 +219,31 @@ bool is_thread_registered(void) {
 
 // Adds current thread to heap_list. If successful, returns 0. Else, returns -1.
 int register_current_thread(void) {
-    
-    // TODO: Change implementation to match hashmap
-    for(int i = 1; i < HEAP_LIST_SIZE; ++i)
+
+    pid_t tid = gettid();
+    int index = tid % (HEAP_LIST_SIZE - 1) + 1; // [1, HEAP_LIST_SIZE)
+
+    int cycles = 0;
+
+    // move to next slot if currently occupied
+    while(heap_list[index].tid != 0)
     {
-        if(heap_list[i].tid == 0)
+        // no more free slots
+        if(cycles == HEAP_LIST_SIZE)
         {
-            heap_list[i].tid = gettid();
-            heap_list[i].m_use = 0;
-            heap_list[i].m_alloc = 0;
-            heap_list[i].heap = NULL;
-            return 0;
+            printf("Error: no more free slots for threads.\n");
+            return -1;
         }
+
+        index = (index + 1) % (HEAP_LIST_SIZE - 1) + 1;
+        cycles++;
     }
 
-    return -1;
+    heap_list[index].tid = tid;
+    heap_list[index].m_use = 0;
+    heap_list[index].m_alloc = 0;
+    heap_list[index].heap = NULL;
+    return 0;
 }
 
 
@@ -208,15 +251,14 @@ int register_current_thread(void) {
 // return heap entry pointer if found, NULL otherwise.
 HeapListEntry* get_thread_heap(void) {
     pid_t tid = gettid();
-    for(int i = 0; i < HEAP_LIST_SIZE; ++i)
+    int index = tid % (HEAP_LIST_SIZE - 1) + 1;
+
+    while(heap_list[index].tid != tid)
     {
-        if(heap_list[i].tid == tid)
-        {
-            return &heap_list[i];
-        }
+        index = (index + 1) % (HEAP_LIST_SIZE - 1) + 1;
     }
 
-    return NULL;
+    return &heap_list[index];
 }
 
 
@@ -229,45 +271,13 @@ HeapListEntry* get_global_heap(void) {
 // TODO
 void *hmalloc(size_t size) {
 
-    if(initialize_global_heap() == GLOBAL_HEAP_FAILURE)
+    if(init_global_heap() == GLOBAL_HEAP_FAILURE)
         return NULL;
 
     if(size == 0)
         return NULL;
 
-    // If size is greater than S/2, allocate via mmap
-    if(size + BLOCK_HEADER_SIZE > SUPERBLOCK_SIZE / 2)
-    {
-        Block* data = mmap(
-            NULL,
-            size + BLOCK_HEADER_SIZE,
-            PROT_READ | PROT_WRITE,
-            MAP_PRIVATE | MAP_ANONYMOUS,
-            -1, 0);
-
-        data->header = ((size + BLOCK_HEADER_SIZE) << 3) | BLOCK_MMAP | BLOCK_USED;
-
-        return &(data->payload);
-    }
-
-    // Size is <= S/2
-    if(!is_thread_registered())
-        register_current_thread();
-
-    // attempt to allocate in thread's superblock. Else, create new superblock
-    HeapListEntry* heap_entry = get_thread_heap();
-    if(!heap_entry->heap)
-    {
-        heap_entry->heap = get_superblock();
-        heap_entry->m_alloc = SUPERBLOCK_SIZE;
-    }
-
     size_t alloc_size = size + BLOCK_HEADER_SIZE;
-
-    // iterate superblocks, find most full one with matching size class and sufficient space
-    int least_free = SUPERBLOCK_SIZE;               // acts as infinity, since no superblock can have same number of blocks as its size in bytes
-    SuperblockNode* least_free_node = NULL;
-    SuperblockNode* curr_node = heap_entry->heap;
 
     // converts alloc_size to nearest size class
     // ex. 96 -> 128, minimum 32
@@ -276,8 +286,42 @@ void *hmalloc(size_t size) {
     if(size_class < 32)
         size_class = 32;
 
+    // If size is greater than S/2, allocate via mmap
+    if(alloc_size > SUPERBLOCK_SIZE / 2)
+    {
+        Block* data = mmap(
+            NULL,
+            size_class,
+            PROT_READ | PROT_WRITE,
+            MAP_PRIVATE | MAP_ANONYMOUS,
+            -1, 0);
+
+        data->header = (size_class << 3) | BLOCK_MMAP | BLOCK_USED;
+
+        return &(data->payload);
+    }
+
+    // Size is <= S/2
+    if(!is_thread_registered())
+        register_current_thread();
+
+    // if no superblocks, create new one
+    HeapListEntry* heap_entry = get_thread_heap();
+    if(heap_entry->heap == NULL)
+    {
+        heap_entry->heap = get_superblock(size_class);
+        heap_entry->m_alloc = SUPERBLOCK_SIZE;
+    }
+
+    // iterate superblocks, find most full one with matching size class and sufficient space
+    // acts as infinity, since no superblock can have same number of blocks as its size in bytes
+    int least_free = SUPERBLOCK_SIZE;
+    SuperblockNode* least_free_node = NULL;
+    SuperblockNode* curr_node = heap_entry->heap;
+
     while(curr_node != NULL)
     {
+        // size class is not empty and wrong size class
         if(curr_node->size_class != 0 && curr_node->size_class != size_class)
         {
             curr_node = curr_node->next;
@@ -297,8 +341,8 @@ void *hmalloc(size_t size) {
     // no available superblock found
     if(least_free_node == NULL)
     {
-        // TODO: Get new superblock from virtual memory and allocate in that
-        least_free_node = get_superblock();
+        // get new superblock from virtual memory and allocate in that
+        least_free_node = get_superblock(size_class);
         least_free_node->next = heap_entry->heap;
         heap_entry->heap = least_free_node;
         heap_entry->m_alloc += SUPERBLOCK_SIZE;
@@ -309,22 +353,15 @@ void *hmalloc(size_t size) {
     {
         least_free_node->size_class = size_class;
         least_free_node->num_free_blocks = SUPERBLOCK_SIZE / size_class;
+
+        init_free_blocks_list(least_free_node);
     }
     
 
     // locate free block in least_free_node
-    void* block_pointer = least_free_node->data;
-    while(true)
-    {
-        long block_header = *((long*)block_pointer);
+    void* block_pointer = least_free_node->free_blocks[least_free_node->num_free_blocks - 1];
 
-        if((block_header & BLOCK_USED) == 0)
-            break;
-
-        block_pointer += least_free_node->size_class;
-    }
-
-    // available block found
+    // set available block as allocated
     *((long*)block_pointer) = (long)least_free_node | BLOCK_USED;
 
     // decrement free blocks
@@ -342,12 +379,22 @@ void hfree(void* ptr) {
 
     long* header = ptr - 8;
 
+    // check if large allocation
+    if(*header & BLOCK_MMAP)
+    {
+        int size = *header >> 3;
+        munmap((void*)header, size);
+
+        return;
+    }
+
     // clear allocated bit
     *header &= ~BLOCK_USED;
 
     // update superblock info
     SuperblockNode* sp = (void*)(*header & ~0b111);
     sp->num_free_blocks++;
+    sp->free_blocks[sp->num_free_blocks - 1] = header;
     
     // update heap entry
     HeapListEntry* hentry = get_thread_heap();
