@@ -1,14 +1,20 @@
 include ../Makefile.inc
 
-all: larson larson-hoard
+all: larson larson-506-hoard larson-hoard larson-jemalloc
 
 TARGET = larson larson-hoard
 
 larson: larson.cpp
 	$(CXX) $(CXXFLAGS) larson.cpp -o larson -lpthread
 
+larson-506-hoard: larson.cpp
+	$(CXX) $(CXXFLAGS) larson.cpp -L /usr/local/lib/506-hoard.so -o larson-hoard -lpthread
+
 larson-hoard: larson.cpp
 	$(CXX) $(CXXFLAGS) larson.cpp -L../../src -lhoard -o larson-hoard -lpthread
+
+larson-jemalloc: larson.cpp
+	$(CXX) $(CXXFLAGS) larson.cpp -L /usr/local/lib/libjemalloc.so -o larson-jemalloc -lpthread
 
 clean:
 	rm -f $(TARGET)
