@@ -93,7 +93,9 @@ This will produce `506-hoard.so` in `/usr/local/lib/`.
 
 Then in the benchmarks folder:
 
-You can `make` in each benchmark and a version of the bench will be compiled with each of the mallocs.
+For larson, a version of the bench will be compiled with each of the mallocs:
+
+`larson-mimalloc, larson-jemalloc, larson-hoard, larson-506hoard`.
 
 The make file will seek at the following mallocs at the following locations:
 
@@ -101,9 +103,14 @@ Make sure to set `LD_LIBRARY_PATH`
 
 `export LD_LIBRARY_PATH=/usr/local/lib`
 
+For threadtest, cache-scratch, and cache-thrash benchmarks you have to set LD_PRELOAD to the malloc you want to test:
+
+`# mimalloc for example`
+`export LD_PRELOAD=$LD_LIBRARY_PATH/libmimalloc.so`
+
 | Malloc | Path |
 | :--: | :--: |
-| 506hoard | /usr/local/lib/506hoard.so |
+| 506hoard | /usr/local/lib/lib506hoard.so |
 | jemalloc | /usr/local/lib/libjemalloc.so |
 | mimalloc | /usr/local/lib/libmimalloc.so |
 | hoard | /usr/local/lib/libhoard.so |
