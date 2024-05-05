@@ -1,3 +1,9 @@
 [submodule "jemalloc"]
 	path = jemalloc
 	url = git@github.com:jemalloc/jemalloc.git
+[submodule "mimalloc"]
+	path = mimalloc
+	url = git@github.com:microsoft/mimalloc.git
+[submodule "Hoard"]
+	path = Hoard
+	url = git@github.com:emeryberger/Hoard.git
