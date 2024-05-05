@@ -82,13 +82,24 @@
 
 ### Benchmark
 
+Assuming you have already installed `jemalloc`, `mimalloc`, and `hoard` installed on your system.
+
+#### To compile our CSE 506 hoard implementation run:
+
 At the root the project, run
-`make so`
+`sudo make so`
 
-Then
+This will produce `506-hoard.so` in `/usr/local/lib/`.
 
-`cd benchmarks && source ./use_hoard.sh`
+Then in the benchmarks folder:
 
-Then run the make for each benchmark and unset when done.
+You can `make` in each benchmark and a version of the bench will be compiled with each of the mallocs.
 
-`unset LD_PRELOAD`
+The make file will seek at the following mallocs at the following locations:
+
+| Malloc | Path |
+| :--: | :--: |
+| 506-hoard | /usr/local/lib/506-hoard.so |
+| jemalloc | /usr/local/lib/libjemalloc.so |
+| mimalloc | path |
+| hoard | path |

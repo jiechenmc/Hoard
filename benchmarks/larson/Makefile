@@ -16,5 +16,8 @@ larson-hoard: larson.cpp
 larson-jemalloc: larson.cpp
 	$(CXX) $(CXXFLAGS) larson.cpp -L /usr/local/lib/libjemalloc.so -o larson-jemalloc -lpthread
 
+larson-mimalloc: larson.cpp
+	$(CXX) $(CXXFLAGS) larson.cpp -L /usr/local/lib/libmimalloc.so -o larson-mimalloc -lpthread
+
 clean:
 	rm -f $(TARGET)
