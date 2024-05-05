@@ -8,10 +8,10 @@ larson: larson.cpp
 	$(CXX) $(CXXFLAGS) larson.cpp -o larson -lpthread
 
 larson-506-hoard: larson.cpp
-	$(CXX) $(CXXFLAGS) larson.cpp -L /usr/local/lib/506-hoard.so -o larson-hoard -lpthread
+	$(CXX) $(CXXFLAGS) larson.cpp -L /usr/local/lib/506-hoard.so -o larson-506-hoard -lpthread
 
 larson-hoard: larson.cpp
-	$(CXX) $(CXXFLAGS) larson.cpp -L../../src -lhoard -o larson-hoard -lpthread
+	$(CXX) $(CXXFLAGS) larson.cpp -L /usr/local/lib/libhoard.so -o larson-hoard -lpthread
 
 larson-jemalloc: larson.cpp
 	$(CXX) $(CXXFLAGS) larson.cpp -L /usr/local/lib/libjemalloc.so -o larson-jemalloc -lpthread
