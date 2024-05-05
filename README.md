@@ -97,9 +97,13 @@ You can `make` in each benchmark and a version of the bench will be compiled wit
 
 The make file will seek at the following mallocs at the following locations:
 
+Make sure to set `LD_LIBRARY_PATH`
+
+`export LD_LIBRARY_PATH=/usr/local/lib`
+
 | Malloc | Path |
 | :--: | :--: |
-| 506-hoard | /usr/local/lib/506-hoard.so |
+| 506hoard | /usr/local/lib/506hoard.so |
 | jemalloc | /usr/local/lib/libjemalloc.so |
-| mimalloc | path |
-| hoard | path |
+| mimalloc | /usr/local/lib/libmimalloc.so |
+| hoard | /usr/local/lib/libhoard.so |
