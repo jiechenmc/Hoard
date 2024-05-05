@@ -1,6 +1,6 @@
 include ../Makefile.inc
 
-all: larson larson-506-hoard larson-hoard larson-jemalloc
+all: larson larson-506-hoard larson-hoard larson-jemalloc larson-mimalloc
 
 TARGET = larson larson-hoard
 

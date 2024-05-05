@@ -55,7 +55,7 @@ bin/
 
 # Benchmark Binaries
 
-benchmarks/larson/larson
-benchmarks/threadtest/threadtest
-benchmarks/cache-scratch/cache-scratch
-benchmarks/cache-thrash/cache-thrash
+benchmarks/larson/*
+benchmarks/threadtest/*
+benchmarks/cache-scratch/*
+benchmarks/cache-thrash/*
