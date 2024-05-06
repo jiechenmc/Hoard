@@ -59,3 +59,4 @@ benchmarks/larson/*
 benchmarks/threadtest/*
 benchmarks/cache-scratch/*
 benchmarks/cache-thrash/*
+venv
