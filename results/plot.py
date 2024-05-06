@@ -102,6 +102,18 @@ ax.set_title("Larson Allocator Throughput Benchmark")
 fig = ax.get_figure()
 fig.savefig("larson.png")
 
+# Plotting Individual
+
+larson_506 = pd.DataFrame(larson["506hoard"], index=[1, 3, 5, 10, 20, 32])
+
+ax = larson_506.head(3).plot.bar()
+ax.set_xlabel("Thread Count")
+ax.set_ylabel("Throughput")
+ax.set_title("506 Hoard Larson Benchmark")
+
+fig = ax.get_figure()
+fig.savefig("larson_506hoard.png")
+
 # Plotting Threadtest
 
 tt8 = pd.DataFrame(threadtest[8], index=[1, 3, 5, 10, 20, 32])
