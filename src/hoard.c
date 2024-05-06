@@ -211,30 +211,22 @@ int init_global_heap(void)
 bool is_thread_registered(void)
 {
     pid_t tid = gettid();
-    int index = tid % (HEAP_LIST_SIZE - 1) + 1;
 
-    int cycles = 0;
-
-    while (heap_list[index].tid != tid)
+    // TODO: Change implementation to use hash function
+    for (int i = 1; i < HEAP_LIST_SIZE; ++i)
     {
-        if (cycles == HEAP_LIST_SIZE)
-        {
-            printf("is thread registered error\n");
-            return false;
-        }
-
-        index = (index + 1) % (HEAP_LIST_SIZE - 1) + 1;
-        cycles++;
+        if (heap_list[i].tid == tid)
+            return true;
     }
 
-    return true;
+    return false;
 }
 
 // Adds current thread to heap_list. If successful, returns 0. Else, returns -1.
 int register_current_thread(void)
 {
-    pid_t tid = gettid();
 
+    pid_t tid = gettid();
     int index = tid % (HEAP_LIST_SIZE - 1) + 1; // [1, HEAP_LIST_SIZE)
 
     int cycles = 0;
@@ -257,8 +249,6 @@ int register_current_thread(void)
     heap_list[index].m_use = 0;
     heap_list[index].m_alloc = 0;
     heap_list[index].heap = NULL;
-
-    debug_print_hoard(PRINT_VERBOSE);
     return 0;
 }
 
@@ -269,18 +259,9 @@ HeapListEntry *get_thread_heap(void)
     pid_t tid = gettid();
     int index = tid % (HEAP_LIST_SIZE - 1) + 1;
 
-    int cycles = 0;
-
     while (heap_list[index].tid != tid)
     {
-        if (cycles == HEAP_LIST_SIZE)
-        {
-            printf("Get thread heap error\n");
-            return NULL;
-        }
-
         index = (index + 1) % (HEAP_LIST_SIZE - 1) + 1;
-        cycles++;
     }
 
     return &heap_list[index];
@@ -295,6 +276,7 @@ HeapListEntry *get_global_heap(void)
 // TODO
 void *malloc(size_t size)
 {
+
     if (init_global_heap() == GLOBAL_HEAP_FAILURE)
         return NULL;
 
@@ -422,10 +404,6 @@ void free(void *ptr)
 
     // update heap entry
     HeapListEntry *hentry = get_thread_heap();
-
-    if(hentry == NULL)
-        return;
-
     hentry->m_use -= sp->size_class;
 
     // if no more allocated blocks in superblock
