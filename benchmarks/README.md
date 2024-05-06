@@ -1,6 +1,6 @@
-# Courtesty of the offical Repository at: https://github.com/emeryberger/Hoard/tree/master/benchmarks
+# Courtesty of the official Repository at: https://github.com/emeryberger/Hoard/tree/master/benchmarks
 
-# The benchmarks will be used to evaulate jemalloc and our implmentation of Hoard.
+# The benchmarks will be used to evaluate other mallocs against our implementation of Hoard.
 
 Concurrent Memory Allocator Benchmarks
 
