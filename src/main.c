@@ -4,8 +4,8 @@
 
 int main(int argc, char **argv)
 {
-    hmalloc(800);
-    debug_print_hoard(PRINT_VERBOSE);
+    malloc(800);
+    // debug_print_hoard(PRINT_VERBOSE);
 
     return 0;
 }
